@@ -1,9 +1,4 @@
 """
-generate_data.py
------------------
-Creates a synthetic (fake but realistic) dataset of digital payment /
-banking transactions, similar in spirit to the well-known Kaggle
-"Credit Card Fraud Detection" dataset.
 
 Why synthetic data?
 Real fraud datasets are usually private (banks don't share them) or
