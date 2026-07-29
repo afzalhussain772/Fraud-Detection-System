@@ -1,113 +1,67 @@
 # Fraud Detection System for Digital Payments and Banking Transactions
 
-## Yeh project kya karta hai (Simple explanation)
+A machine learning system that classifies banking and digital payment transactions as legitimate or fraudulent. Built as a binary classification pipeline using scikit-learn, with a focus on handling the severe class imbalance that real-world fraud detection always involves.
 
-Har bank ya digital wallet (JazzCash, Easypaisa, credit cards, etc.) mein
-lakhon transactions hoti hain. Inme se bohot kam (1-2%) **fraud** hoti hain
-— matlab kisi ne chori shuda card ya account se paisa nikalne ki koshish ki.
+## Overview
 
-Is project ka kaam hai: **Machine Learning model banana jo automatically
-bata de ke koi transaction "normal" hai ya "fraud".**
+Every digital payment platform — credit cards, mobile wallets, online banking — processes far more legitimate transactions than fraudulent ones, typically less than 2% of all activity. That imbalance is what makes fraud detection a genuinely hard problem: a model that simply predicts "legitimate" for everything will still score 98% accuracy while catching zero fraud.
 
-Yeh ek **classification problem** hai — sirf 2 possible outputs:
-- `0` = Legit (theek) transaction
-- `1` = Fraud transaction
+This project builds and evaluates two classifiers — Logistic Regression and Random Forest — trained to catch that minority class without drowning in false positives.
 
----
+## Dataset
 
-## Dataset (data kahan se aaya)
+Real transaction data from financial institutions is confidential and generally unavailable outside partnership agreements, so this project uses a synthetically generated dataset (`generate_data.py`) built to mirror the statistical shape of real fraud data: a ~98/2 class split, and fraud cases skewed toward specific, realistic patterns (odd hours, newer accounts, higher amounts, unusual distance from the account holder's typical location).
 
-Real bank data private hota hai, isliye humne **synthetic dataset**
-generate kiya hai (`generate_data.py` file) jo bilkul real fraud data jaisa
-behave karta hai:
-
-| Feature | Matlab |
+| Feature | Description |
 |---|---|
-| `amount` | Transaction ki rakam |
-| `transaction_hour` | Din ke kis waqt transaction hui (0-23) |
-| `account_age_days` | Account kitne din purana hai |
-| `num_transactions_last_24h` | Pichle 24 ghanton mein kitni transactions hui |
-| `distance_from_home_km` | Ghar se kitni door transaction hui |
-| `is_foreign_transaction` | Kya transaction videsh se hui (0/1) |
-| `is_online` | Kya online transaction thi (0/1) |
-| `class` | Target: 0 = legit, 1 = fraud |
+| `amount` | Transaction amount |
+| `transaction_hour` | Hour of day the transaction occurred (0–23) |
+| `account_age_days` | Age of the account in days |
+| `num_transactions_last_24h` | Number of transactions in the preceding 24 hours |
+| `distance_from_home_km` | Distance between the transaction location and the account holder's home |
+| `is_foreign_transaction` | Whether the transaction originated abroad (0/1) |
+| `is_online` | Whether the transaction was made online (0/1) |
+| `class` | Target label — 0 = legitimate, 1 = fraud |
 
-**Fraud pattern jo humne data mein dala hai** (real duniya jaisa hi):
-fraud transactions aksar raat ko hoti hain, bara amount ki hoti hain,
-naye account se hoti hain, aur ghar se bohot door hoti hain.
+## Pipeline
 
----
+1. **Load data** — read the transaction CSV into a DataFrame.
+2. **Preprocess** — scale features with `StandardScaler` so no single feature dominates on the basis of magnitude alone.
+3. **Split** — 75/25 train/test split, stratified on the target to preserve the fraud ratio in both sets.
+4. **Train** — two models, both trained with `class_weight="balanced"` to counteract the imbalance:
+   - **Logistic Regression** — a fast, interpretable baseline.
+   - **Random Forest** — an ensemble of decision trees, generally stronger on non-linear patterns.
+5. **Evaluate** — accuracy alone is not informative on imbalanced data, so evaluation centers on:
+   - **Precision** — of the transactions flagged as fraud, how many actually were.
+   - **Recall** — of all actual fraud cases, how many were caught.
+   - **ROC-AUC** — overall separability between the two classes.
+6. **Feature importance** — which inputs the Random Forest relied on most heavily when making its predictions.
 
-## Kaam kaise hota hai (Pipeline)
-
-1. **Data load karna** — CSV file se transactions read karte hain
-2. **Preprocessing** — features ko scale karte hain (StandardScaler) taake
-   sab features same range mein aa jayein
-3. **Train/Test split** — 75% data se model train karte hain, 25% se test
-   (verify) karte hain ke model sahi kaam kar raha hai ya nahi
-4. **Do models train karte hain:**
-   - **Logistic Regression** — simple, fast, baseline model
-   - **Random Forest** — kayi "decision trees" ka combination, zyada
-     accurate hota hai
-5. **Evaluation** — sirf accuracy dekhna kaafi nahi (kyunke 98% data legit
-   hai, koi bhi "sab legit hai" bol kar bhi 98% accuracy pa sakta hai).
-   Isliye hum dekhte hain:
-   - **Precision** — jab model "fraud" bole, kitni baar sahi hota hai
-   - **Recall** — total fraud cases mein se kitne pakre gaye
-   - **ROC-AUC** — overall model kitna acha differentiate karta hai
-6. **Feature importance** — dekhte hain ke kaunsi cheez (waqt, distance,
-   amount) sabse zyada fraud detect karne mein madad karti hai
-
----
-
-## Kaise run karein
+## Usage
 
 ```bash
 pip install -r requirements.txt
-python generate_data.py       # dataset banata hai (data/transactions.csv)
-python fraud_detection.py     # model train + evaluate karta hai
+python generate_data.py       # generates the synthetic dataset -> data/transactions.csv
+python fraud_detection.py     # trains both models and runs evaluation
 ```
 
-Output:
-- Terminal mein: dataset stats, dono models ke precision/recall/F1/ROC-AUC
-- `results/evaluation_plots.png` — Confusion Matrix + ROC Curve
-- `results/feature_importance.png` — kaunsa feature sabse important hai
+**Output:**
+- Console: dataset summary, per-model precision/recall/F1, ROC-AUC
+- `results/evaluation_plots.png` — confusion matrix and ROC curve comparison
+- `results/feature_importance.png` — ranked feature importances from the Random Forest
 
----
+## Interpreting the results
 
-## Results ka matlab (presentation ke liye)
+- **Confusion matrix** — breaks predictions into true positives, false positives, and false negatives. False negatives (fraud predicted as legitimate) are the costliest error type in this domain, since that's the fraud that slips through.
+- **ROC curve** — the closer the curve hugs the top-left corner, the better the model separates the two classes. An AUC of 1.0 is a perfect separator.
+- **Feature importance** — in this dataset, `transaction_hour` and `distance_from_home_km` turned out to be the strongest predictors, consistent with the intuition that fraud tends to cluster at odd hours and away from a cardholder's usual location.
 
-- **Confusion Matrix** dikhata hai: model ne kitni transactions sahi
-  pakri (True Positive), kitni ghalat "fraud" bol di (False Positive),
-  aur kitni fraud miss ki (False Negative — yeh sabse khatarnak hai
-  kyunke asli fraud pakra nahi gaya).
-- **ROC Curve**: jitna curve top-left corner ke qareeb, model utna acha.
-  AUC = 1.0 matlab perfect model.
-- **Feature Importance chart**: batata hai ke model ne fraud pakarne ke
-  liye kaunse features sabse zyada use kiye (jaise humare data mein
-  `transaction_hour` aur `distance_from_home_km` sabse important nikle
-  — jo makes sense hai kyunke fraud aksar raat ko aur ghar se door hota hai).
+## Notes on the approach
 
----
+**Why not just optimize for accuracy?** With a 98/2 class split, accuracy is close to meaningless — a model can score high while missing every fraud case. Precision, recall, and ROC-AUC give a much more honest picture of performance on the minority class.
 
-## Agar viva/presentation mein poocha jaye
+**Why `class_weight="balanced"`?** Without it, both models would gravitate toward the majority class simply because it dominates the training data. This setting increases the penalty for misclassifying the minority (fraud) class during training.
 
-**Q: Ye supervised ya unsupervised learning hai?**
-A: Supervised — kyunke humare paas labeled data hai (har transaction ko
-pehle se "fraud" ya "legit" mark kiya gaya hai).
+**Random Forest vs. Logistic Regression.** Logistic Regression assumes a roughly linear relationship between features and outcome — good for a fast baseline. Random Forest, as an ensemble of trees, captures non-linear interactions between features (e.g., "large amount *and* odd hour *and* new account" matters more than any one feature alone), which is usually why it edges out the simpler model here.
 
-**Q: Class imbalance kya hoti hai aur isse kaise handle kiya?**
-A: Jab ek class (legit) dusri se bohot zyada ho (98% vs 2%), tab model
-sirf majority class predict karke bhi high accuracy pa sakta hai. Humne
-`class_weight="balanced"` use kiya jo model ko fraud cases par zyada
-dhyaan dene par majboor karta hai.
-
-**Q: Random Forest, Logistic Regression se better kyun hai (aksar)?**
-A: Random Forest kayi decision trees banata hai aur unka average leta
-hai, isliye complex, non-linear patterns better pakarta hai. Logistic
-Regression simple linear relationships ke liye acha hai.
-
-**Q: Real duniya mein isko improve kaise karenge?**
-A: Real fraud data use karke, aur zyada features add karke (jaise
-device fingerprint, IP address, spending history pattern), aur models
-jaise XGBoost ya Neural Networks try karke.
+**Limitations.** This is trained on synthetic data, so the results — while illustrative of the pipeline — shouldn't be read as a claim about real-world fraud rates. A production system would need real transaction history, additional signals (device fingerprinting, IP geolocation, merchant risk scores), and ongoing retraining as fraud patterns shift over time.
